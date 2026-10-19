@@ -69,6 +69,11 @@ h1{font-family:var(--serif);font-weight:500;font-size:clamp(46px,8vw,86px);line-
 .addsub input{flex:1;min-width:0;border:0;border-bottom:1px solid var(--line);background:none;font:inherit;padding:6px 0;color:var(--ink)}
 .addsub input:focus{outline:none;border-color:var(--ink)}
 .addsub button{background:none;border:0;font-size:13px;border-bottom:1px solid var(--ink);padding:2px 0}
+.name[data-act=rename]{cursor:text}
+.name[data-act=rename]:hover{border-bottom:1px dashed var(--mute)}
+.nameedit{flex:1;min-width:0;font:500 30px/1.1 var(--serif);color:var(--ink);background:#fff;border:0;border-bottom:1px solid var(--ink);padding:2px 4px}
+.sub .nameedit{font-size:22px}
+.nameedit:focus{outline:none}
 .namewrap{display:flex;align-items:center;gap:10px;min-width:0}
 .subplus{flex:none;width:28px;height:28px;border-radius:50%;border:1px solid var(--ink);background:none;font-size:18px;line-height:1;padding:0;display:grid;place-items:center}
 .subplus:hover,.subplus.on{background:var(--ink);color:#fff}
@@ -151,7 +156,7 @@ const USERS=['Yoni','Tom'],COL={Yoni:'var(--forest)',Tom:'var(--moss)'};
 const ST=['Not started','In progress','Complete','Needs final fixes'];
 const SC={'Not started':'var(--ns)','In progress':'var(--ip)','Complete':'var(--ok)','Needs final fixes':'var(--nf)'};
 const FIL=[['all','All'],['mine','Mine'],['free','Unclaimed'],['todo','Not complete']];
-let S=Store.load(),me=localStorage.getItem('docs_me'),filter='all',sfilter='any',open=new Set(),addOpen=new Set();
+let S=Store.load(),me=localStorage.getItem('docs_me'),filter='all',sfilter='any',open=new Set(),addOpen=new Set(),editing=null;
 const uid=()=>Math.random().toString(36).slice(2,9);
 const find=id=>S.items.find(i=>i.id===id);
 function commit(){Store.save(S);render()}
@@ -161,7 +166,7 @@ const match=i=>filter==='mine'?i.claim===me&&(sfilter==='any'||i.status===sfilte
 
 function item(i,isSub){
  const kids=S.items.filter(c=>c.parent===i.id).sort(byStatus);
- let h=`<div class="item${isSub?' sub':''} s-${i.status==='Complete'?'ok':'x'}" data-id="${i.id}"><div class="head"><div class="namewrap"><div class="name">${esc(i.title)}</div>${isSub?'':`<button class="subplus${addOpen.has(i.id)?' on':''}" data-act="subtoggle" aria-label="Add sub-document" title="Add sub-document">${addOpen.has(i.id)?'−':'+'}</button>`}</div><button class="x" data-act="del" aria-label="Delete">×</button></div>`;
+ let h=`<div class="item${isSub?' sub':''} s-${i.status==='Complete'?'ok':'x'}" data-id="${i.id}"><div class="head"><div class="namewrap">${editing===i.id?`<input class="nameedit" data-edit="${i.id}" value="${esc(i.title)}" maxlength="120" autocomplete="off">`:`<div class="name" data-act="rename" title="Click to edit">${esc(i.title)}</div>`}${isSub?'':`<button class="subplus${addOpen.has(i.id)?' on':''}" data-act="subtoggle" aria-label="Add sub-document" title="Add sub-document">${addOpen.has(i.id)?'−':'+'}</button>`}</div><button class="x" data-act="del" aria-label="Delete">×</button></div>`;
  if(kids.length)h+=`<div class="prog">${kids.filter(k=>k.status==='Complete').length} of ${kids.length} sub-documents complete</div>`;
  h+=`<div class="row">${ST.map(s=>`<button class="pill${s===i.status?' on':''}" style="--c:${SC[s]}" data-act="status" data-s="${s}">${s}</button>`).join('')}</div><div class="row">`;
  if(!i.claim)h+=`<button class="chip" data-act="claim">Claim</button>`;
@@ -193,6 +198,7 @@ function render(){
 }
 function add(t,p){t=t.trim();if(!t)return;S.items.push({id:uid(),title:t,parent:p||null,status:'Not started',claim:null,notes:'',planned:''});commit()}
 const focusSub=id=>{const el=document.querySelector(`[data-sub="${id}"]`);if(el)el.focus()};
+function finishEdit(id,val,save){if(editing!==id)return;editing=null;const it=find(id);if(save&&it&&val.trim()){it.title=val.trim();commit()}else render()}
 function setMe(u){me=u;localStorage.setItem('docs_me',u);render()}
 document.addEventListener('click',e=>{
  const b=e.target.closest('[data-act]');if(!b)return;
@@ -206,6 +212,7 @@ document.addEventListener('click',e=>{
  else if(a==='addSub'){const id=b.previousElementSibling.dataset.sub;add(b.previousElementSibling.value,id);focusSub(id)}
  else if(!it)return;
  else if(a==='subtoggle'){addOpen.has(it.id)?addOpen.delete(it.id):addOpen.add(it.id);render();if(addOpen.has(it.id))focusSub(it.id)}
+ else if(a==='rename'){editing=it.id;render();const el=document.querySelector(`[data-edit="${it.id}"]`);if(el){el.focus();el.select()}}
  else if(a==='status'){it.status=b.dataset.s;commit()}
  else if(a==='claim'){it.claim=me;commit()}
  else if(a==='release'){it.claim=null;commit()}
@@ -221,10 +228,12 @@ document.addEventListener('change',e=>{
  if(it&&t.dataset.act==='planned'){it.planned=t.value;commit()}
 });
 document.addEventListener('keydown',e=>{
+ if(e.target.dataset?.edit){if(e.key==='Enter')finishEdit(e.target.dataset.edit,e.target.value,true);else if(e.key==='Escape')finishEdit(e.target.dataset.edit,'',false);return}
  if(e.key!=='Enter'||e.target.tagName!=='INPUT')return;
  if(e.target.id==='newDoc'){add(e.target.value,null);e.target.value='';$('#newDoc').focus()}
  else if(e.target.dataset.sub){const id=e.target.dataset.sub;add(e.target.value,id);focusSub(id)}
 });
+document.addEventListener('focusout',e=>{if(e.target.dataset?.edit)finishEdit(e.target.dataset.edit,e.target.value,true)});
 let pending=false;
 const typing=()=>/INPUT|TEXTAREA/.test(document.activeElement?.tagName||'');
 Store.subscribe(s=>{S={items:s.items||[]};if(typing())pending=true;else render()});
