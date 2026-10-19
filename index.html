@@ -54,6 +54,7 @@ h1{font-family:var(--serif);font-weight:500;font-size:clamp(46px,8vw,86px);line-
 .s-ok>.head .name{text-decoration:line-through;color:var(--mute)}
 .x{background:none;border:0;color:var(--mute);font-size:20px;line-height:1}
 .x:hover{color:var(--moss)}
+.notetext{margin:6px 0 0;font-size:13px;color:var(--mute);white-space:pre-wrap;word-break:break-word;cursor:pointer}
 .prog{font-size:12px;color:var(--mute);margin-top:4px}
 .row{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;align-items:center}
 .pill{border:1px solid var(--ns);background:none;border-radius:99px;padding:5px 13px;font-size:12px;color:var(--mute)}
@@ -167,6 +168,7 @@ const match=i=>filter==='mine'?i.claim===me&&(sfilter==='any'||i.status===sfilte
 function item(i,isSub){
  const kids=S.items.filter(c=>c.parent===i.id).sort(byStatus);
  let h=`<div class="item${isSub?' sub':''} s-${i.status==='Complete'?'ok':'x'}" data-id="${i.id}"><div class="head"><div class="namewrap">${editing===i.id?`<input class="nameedit" data-edit="${i.id}" value="${esc(i.title)}" maxlength="120" autocomplete="off">`:`<div class="name" data-act="rename" title="Click to edit">${esc(i.title)}</div>`}${isSub?'':`<button class="subplus${addOpen.has(i.id)?' on':''}" data-act="subtoggle" aria-label="Add sub-document" title="Add sub-document">${addOpen.has(i.id)?'−':'+'}</button>`}</div><button class="x" data-act="del" aria-label="Delete">×</button></div>`;
+ if(i.notes&&!open.has(i.id))h+=`<div class="notetext" data-act="note" title="Click to edit note">${esc(i.notes)}</div>`;
  if(kids.length)h+=`<div class="prog">${kids.filter(k=>k.status==='Complete').length} of ${kids.length} sub-documents complete</div>`;
  h+=`<div class="row">${ST.map(s=>`<button class="pill${s===i.status?' on':''}" style="--c:${SC[s]}" data-act="status" data-s="${s}">${s}</button>`).join('')}</div><div class="row">`;
  if(!i.claim)h+=`<button class="chip" data-act="claim">Claim</button>`;
